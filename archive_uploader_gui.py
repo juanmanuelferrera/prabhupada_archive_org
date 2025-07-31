@@ -37,6 +37,7 @@ class ArchiveUploaderGUI:
         self.directory_var = tk.StringVar()
         self.author_var = tk.StringVar()
         self.collection_var = tk.StringVar(value="opensource")
+        self.threads_var = tk.StringVar(value="3")
         self.progress_var = tk.StringVar(value="Listo para subir")
         
         # Cola para comunicación entre hilos
@@ -85,6 +86,13 @@ class ArchiveUploaderGUI:
         collection_combo = ttk.Combobox(config_frame, textvariable=self.collection_var, 
                                        values=["opensource", "texts", "audio", "movies", "image"])
         collection_combo.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=(5, 5), pady=5)
+        
+        # Hilos de subida
+        ttk.Label(config_frame, text="🔄 Hilos:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        threads_combo = ttk.Combobox(config_frame, textvariable=self.threads_var, 
+                                    values=["1", "2", "3", "4", "5"], width=10)
+        threads_combo.grid(row=3, column=1, sticky=tk.W, padx=(5, 5), pady=5)
+        ttk.Label(config_frame, text="(máximo 5 para no sobrecargar Archive.org)").grid(row=3, column=2, sticky=tk.W, pady=5)
         
         # Sección de archivos
         files_frame = ttk.LabelFrame(main_frame, text="📋 Archivos Encontrados", padding="10")
@@ -200,8 +208,8 @@ class ArchiveUploaderGUI:
         except queue.Empty:
             pass
         
-        # Programar siguiente verificación
-        self.root.after(100, self.process_log_queue)
+        # Programar siguiente verificación con menor frecuencia para mejor responsividad
+        self.root.after(50, self.process_log_queue)
         
     def check_configuration(self):
         """Verificar configuración de Archive.org"""
@@ -241,29 +249,36 @@ class ArchiveUploaderGUI:
         # Limpiar lista actual
         self.clear_files_list()
         
-        # Escanear archivos
-        files_found = 0
-        try:
-            uploader = ArchiveUploader(self.author_var.get() or "Autor", self.collection_var.get())
-            files = uploader.scan_directory(Path(directory))
-            
-            for file_path in files:
-                # Obtener información del archivo
-                file_size = os.path.getsize(file_path)
-                file_size_str = self.format_file_size(file_size)
-                file_type = uploader.get_mediatype(file_path)
+        # Escanear archivos en hilo separado para no bloquear la GUI
+        def scan_worker():
+            try:
+                uploader = ArchiveUploader(self.author_var.get() or "Autor", self.collection_var.get())
+                files = uploader.scan_directory(Path(directory))
                 
-                # Insertar en la lista
-                self.files_tree.insert("", tk.END, text=file_path.name, 
-                                     values=(file_type, file_size_str))
-                files_found += 1
+                files_found = 0
+                for file_path in files:
+                    # Obtener información del archivo
+                    file_size = os.path.getsize(file_path)
+                    file_size_str = self.format_file_size(file_size)
+                    file_type = uploader.get_mediatype(file_path)
+                    
+                    # Insertar en la lista en el hilo principal
+                    self.root.after(0, lambda fp=file_path, ft=file_type, fs=file_size_str: 
+                        self.files_tree.insert("", tk.END, text=fp.name, values=(ft, fs)))
+                    files_found += 1
+                    
+                # Actualizar log en el hilo principal
+                self.root.after(0, lambda: self.log(f"✅ Encontrados {files_found} archivos"))
+                self.root.after(0, lambda: self.progress_var.set(f"Encontrados {files_found} archivos"))
                 
-            self.log(f"✅ Encontrados {files_found} archivos")
-            self.progress_var.set(f"Encontrados {files_found} archivos")
-            
-        except Exception as e:
-            self.log(f"❌ Error escaneando directorio: {e}")
-            messagebox.showerror("Error", f"Error escaneando directorio: {e}")
+            except Exception as e:
+                self.root.after(0, lambda: self.log(f"❌ Error escaneando directorio: {e}"))
+                self.root.after(0, lambda: messagebox.showerror("Error", f"Error escaneando directorio: {e}"))
+        
+        # Iniciar escaneo en hilo separado
+        scan_thread = threading.Thread(target=scan_worker)
+        scan_thread.daemon = True
+        scan_thread.start()
             
     def clear_files_list(self):
         """Limpiar lista de archivos"""
@@ -345,7 +360,7 @@ class ArchiveUploaderGUI:
             self.upload_button.config(state="normal")
             
     def upload_worker(self, directory, author):
-        """Trabajador de subida en hilo separado"""
+        """Trabajador de subida en hilo separado con múltiples hilos"""
         try:
             self.log(f"🚀 Iniciando subida para '{author}'")
             
@@ -365,27 +380,71 @@ class ArchiveUploaderGUI:
             # Configurar barra de progreso
             self.root.after(0, lambda: self.progress_bar.config(maximum=total_files))
             
+            # Variables compartidas para conteo
+            from threading import Lock
             success_count = 0
             error_count = 0
+            completed_count = 0
+            lock = Lock()
             
-            for i, file_path in enumerate(files):
-                if not self.uploading:  # Verificar si se canceló
-                    break
-                    
-                # Actualizar progreso
-                self.root.after(0, lambda idx=i: self.progress_bar.config(value=idx))
-                self.root.after(0, lambda f=file_path.name: self.progress_var.set(f"Subiendo: {f}"))
+            def upload_single_file(file_path, file_index):
+                nonlocal success_count, error_count, completed_count
                 
-                self.log(f"📤 Subiendo {i+1}/{total_files}: {file_path.name}")
-                
-                # Subir archivo
-                if uploader.upload_file(file_path):
-                    success_count += 1
-                    self.log(f"✅ Subido exitosamente: {file_path.name}")
-                else:
-                    error_count += 1
-                    self.log(f"❌ Error subiendo: {file_path.name}")
+                try:
+                    if not self.uploading:  # Verificar si se canceló
+                        return
+                        
+                    self.log(f"📤 Subiendo {file_index+1}/{total_files}: {file_path.name}")
                     
+                    # Subir archivo
+                    if uploader.upload_file(file_path):
+                        with lock:
+                            success_count += 1
+                        self.log(f"✅ Subido exitosamente: {file_path.name}")
+                    else:
+                        with lock:
+                            error_count += 1
+                        self.log(f"❌ Error subiendo: {file_path.name}")
+                        
+                except Exception as e:
+                    with lock:
+                        error_count += 1
+                    self.log(f"❌ Error subiendo {file_path.name}: {e}")
+                finally:
+                    with lock:
+                        completed_count += 1
+                    
+                    # Actualizar progreso en el hilo principal
+                    self.root.after(0, lambda: self.progress_bar.config(value=completed_count))
+                    self.root.after(0, lambda: self.progress_var.set(f"Completados: {completed_count}/{total_files}"))
+            
+            # Determinar número de hilos desde la configuración
+            try:
+                max_threads = min(int(self.threads_var.get()), 5, total_files)
+            except ValueError:
+                max_threads = min(3, total_files)  # Default a 3 si hay error
+            self.log(f"🔄 Usando {max_threads} hilos para subida paralela")
+            
+            # Crear pool de hilos
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
+                # Enviar todos los archivos al pool
+                futures = []
+                for i, file_path in enumerate(files):
+                    if not self.uploading:
+                        break
+                    future = executor.submit(upload_single_file, file_path, i)
+                    futures.append(future)
+                
+                # Esperar a que todos terminen
+                for future in concurrent.futures.as_completed(futures):
+                    if not self.uploading:
+                        break
+                    try:
+                        future.result()  # Esto captura cualquier excepción
+                    except Exception as e:
+                        self.log(f"❌ Error en hilo de subida: {e}")
+            
             # Finalizar
             self.root.after(0, lambda: self.progress_bar.config(value=total_files))
             self.root.after(0, lambda: self.progress_var.set(f"Completado: {success_count} exitosos, {error_count} errores"))

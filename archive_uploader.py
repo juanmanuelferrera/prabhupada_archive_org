@@ -95,14 +95,27 @@ class ArchiveUploader:
         
     def generate_identifier(self, file_path: Path) -> str:
         """Generar identificador único para Archive.org"""
-        # Limpiar nombre del archivo
+        # Limpiar nombre del archivo - solo caracteres válidos para Archive.org
         clean_name = file_path.stem.lower()
+        # Solo permitir letras, números, guiones y guiones bajos
         clean_name = ''.join(c for c in clean_name if c.isalnum() or c in '-_')
         clean_name = clean_name.replace(' ', '-')
         
+        # Limpiar autor también
+        clean_author = self.author_name.lower()
+        clean_author = ''.join(c for c in clean_author if c.isalnum() or c in '-_')
+        clean_author = clean_author.replace(' ', '-')
+        
         # Agregar autor y timestamp
         timestamp = datetime.datetime.now().strftime('%Y%m%d')
-        return f"{self.author_name.lower().replace(' ', '-')}-{clean_name}-{timestamp}"
+        identifier = f"{clean_author}-{clean_name}-{timestamp}"
+        
+        # Asegurar que el identificador cumple con las reglas de Archive.org
+        # Máximo 100 caracteres, empezar con alfanumérico
+        if len(identifier) > 100:
+            identifier = identifier[:100]
+        
+        return identifier
         
     def generate_metadata(self, file_path: Path, mediatype: str) -> Dict:
         """Generar metadatos para el archivo"""
@@ -148,6 +161,7 @@ class ArchiveUploader:
             metadata = self.generate_metadata(file_path, mediatype)
             
             self.logger.info(f"Subiendo: {file_path.name} -> {identifier}")
+            self.logger.info(f"Colección: {self.collection}")
             
             # Subir archivo
             item = ia.upload(identifier, files=str(file_path), metadata=metadata)
