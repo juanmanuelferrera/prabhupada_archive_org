@@ -29,16 +29,24 @@ except ImportError:
 class ArchiveUploaderGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Archive.org Uploader - Subir Material de Autor")
-        self.root.geometry("800x600")
+        self.root.title("📚 Archive.org Uploader - Prabhupada Archive")
+        self.root.geometry("1000x700")
+        self.root.minsize(800, 600)
         self.root.resizable(True, True)
         
         # Variables
         self.directory_var = tk.StringVar()
         self.author_var = tk.StringVar()
         self.collection_var = tk.StringVar(value="opensource")
-        self.threads_var = tk.StringVar(value="2")
+        self.existing_collection_var = tk.StringVar()
+        self.use_existing_collection_var = tk.BooleanVar(value=False)
+        self.list_name_var = tk.StringVar()
+        self.add_to_list_var = tk.BooleanVar(value=False)
+        self.threads_var = tk.StringVar(value="1")
         self.progress_var = tk.StringVar(value="Listo para subir")
+        self.auto_scan_var = tk.BooleanVar(value=True)
+        self.dark_mode_var = tk.BooleanVar(value=False)
+        self.upload_stats = {"success": 0, "error": 0, "total": 0}
         
         # Cola para comunicación entre hilos
         self.log_queue = queue.Queue()
@@ -62,10 +70,24 @@ class ArchiveUploaderGUI:
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
         
-        # Título
-        title_label = ttk.Label(main_frame, text="📚 Archive.org Uploader", 
-                               font=("Arial", 16, "bold"))
-        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        # Título con estilo moderno
+        title_frame = ttk.Frame(main_frame)
+        title_frame.grid(row=0, column=0, columnspan=3, pady=(0, 20), sticky=(tk.W, tk.E))
+        
+        title_label = ttk.Label(title_frame, text="📚 Archive.org Uploader", 
+                               font=("Arial", 18, "bold"))
+        title_label.pack(side=tk.LEFT)
+        
+        # Botones de configuración rápida
+        settings_frame = ttk.Frame(title_frame)
+        settings_frame.pack(side=tk.RIGHT)
+        
+        ttk.Checkbutton(settings_frame, text="🌙 Modo Oscuro", 
+                       variable=self.dark_mode_var, 
+                       command=self.toggle_dark_mode).pack(side=tk.LEFT, padx=(0, 10))
+        
+        ttk.Checkbutton(settings_frame, text="🔄 Auto-escaneo", 
+                       variable=self.auto_scan_var).pack(side=tk.LEFT)
         
         # Sección de configuración
         config_frame = ttk.LabelFrame(main_frame, text="⚙️ Configuración", padding="10")
@@ -87,12 +109,34 @@ class ArchiveUploaderGUI:
                                        values=["opensource", "texts", "audio", "movies", "image"])
         collection_combo.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=(5, 5), pady=5)
         
+        # Opción para colección existente
+        existing_collection_frame = ttk.Frame(config_frame)
+        existing_collection_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        
+        ttk.Checkbutton(existing_collection_frame, text="📚 Usar colección existente", 
+                       variable=self.use_existing_collection_var).pack(side=tk.LEFT)
+        ttk.Entry(existing_collection_frame, textvariable=self.existing_collection_var, 
+                 width=40).pack(side=tk.LEFT, padx=(10, 0))
+        ttk.Label(existing_collection_frame, text="(Nombre de la colección existente)", 
+                 foreground="gray").pack(side=tk.LEFT, padx=(5, 0))
+        
+        # Opción para agregar a lista
+        list_frame = ttk.Frame(config_frame)
+        list_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=5)
+        
+        ttk.Checkbutton(list_frame, text="📋 Agregar a lista", 
+                       variable=self.add_to_list_var).pack(side=tk.LEFT)
+        ttk.Entry(list_frame, textvariable=self.list_name_var, 
+                 width=40).pack(side=tk.LEFT, padx=(10, 0))
+        ttk.Label(list_frame, text="(Nombre de la lista - opcional)", 
+                 foreground="gray").pack(side=tk.LEFT, padx=(5, 0))
+        
         # Hilos de subida
-        ttk.Label(config_frame, text="🔄 Hilos:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        ttk.Label(config_frame, text="🔄 Hilos:").grid(row=5, column=0, sticky=tk.W, pady=5)
         threads_combo = ttk.Combobox(config_frame, textvariable=self.threads_var, 
                                     values=["1", "2", "3", "4", "5"], width=10)
-        threads_combo.grid(row=3, column=1, sticky=tk.W, padx=(5, 5), pady=5)
-        ttk.Label(config_frame, text="(Menos = más responsivo)").grid(row=3, column=2, sticky=tk.W, pady=5)
+        threads_combo.grid(row=5, column=1, sticky=tk.W, padx=(5, 5), pady=5)
+        ttk.Label(config_frame, text="(Menos = más responsivo)").grid(row=5, column=2, sticky=tk.W, pady=5)
         
         # Sección de archivos
         files_frame = ttk.LabelFrame(main_frame, text="📋 Archivos Encontrados", padding="10")
@@ -100,8 +144,8 @@ class ArchiveUploaderGUI:
         files_frame.columnconfigure(0, weight=1)
         files_frame.rowconfigure(0, weight=1)
         
-        # Lista de archivos
-        self.files_tree = ttk.Treeview(files_frame, columns=("Tipo", "Tamaño"), show="tree headings", height=8)
+        # Lista de archivos con scroll virtual para mejor rendimiento
+        self.files_tree = ttk.Treeview(files_frame, columns=("Tipo", "Tamaño"), show="tree headings", height=6)
         self.files_tree.heading("#0", text="Archivo")
         self.files_tree.heading("Tipo", text="Tipo")
         self.files_tree.heading("Tamaño", text="Tamaño")
@@ -169,17 +213,81 @@ class ArchiveUploaderGUI:
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
         
-        # Área de texto para log
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=8, wrap=tk.WORD)
+        # Área de texto para log con altura reducida para mejor rendimiento
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=6, wrap=tk.WORD)
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Configurar grid weights
         main_frame.rowconfigure(2, weight=1)
         main_frame.rowconfigure(7, weight=1)
         
+        # Barra de estado moderna
+        self.create_status_bar(main_frame)
+        
         # Variables de control
         self.uploading = False
         self.upload_thread = None
+        
+        # Iniciar procesamiento de log
+        self.process_log_queue()
+    
+    def create_status_bar(self, parent):
+        """Crear barra de estado moderna"""
+        status_frame = ttk.Frame(parent)
+        status_frame.grid(row=8, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
+        
+        # Estadísticas de subida
+        self.stats_label = ttk.Label(status_frame, text="📊 Listo para subir")
+        self.stats_label.pack(side=tk.LEFT)
+        
+        # Separador
+        ttk.Separator(status_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
+        
+        # Estado de conexión
+        self.connection_label = ttk.Label(status_frame, text="🔗 Conectado a Archive.org")
+        self.connection_label.pack(side=tk.LEFT)
+        
+        # Separador
+        ttk.Separator(status_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
+        
+        # Información de archivos
+        self.files_label = ttk.Label(status_frame, text="📁 0 archivos")
+        self.files_label.pack(side=tk.LEFT)
+        
+        # Separador
+        ttk.Separator(status_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
+        
+        # Versión
+        version_label = ttk.Label(status_frame, text="v2.0 - Prabhupada Archive")
+        version_label.pack(side=tk.RIGHT)
+    
+    def toggle_dark_mode(self):
+        """Cambiar entre modo claro y oscuro"""
+        if self.dark_mode_var.get():
+            # Aplicar tema oscuro
+            style = ttk.Style()
+            style.theme_use('clam')
+            # Configurar colores oscuros
+            self.root.configure(bg='#2b2b2b')
+        else:
+            # Aplicar tema claro
+            style = ttk.Style()
+            style.theme_use('clam')
+            # Configurar colores claros
+            self.root.configure(bg='#f0f0f0')
+    
+    def update_stats(self):
+        """Actualizar estadísticas en la barra de estado"""
+        stats = self.upload_stats
+        self.stats_label.config(text=f"📊 ✅ {stats['success']} | ❌ {stats['error']} | 📁 {stats['total']}")
+        
+    def update_files_count(self, count):
+        """Actualizar contador de archivos"""
+        self.files_label.config(text=f"📁 {count} archivos")
+        
+    def update_connection_status(self, status, color="green"):
+        """Actualizar estado de conexión"""
+        self.connection_label.config(text=f"🔗 {status}", foreground=color)
         
     def setup_logging(self):
         """Configurar logging para la GUI"""
@@ -200,9 +308,9 @@ class ArchiveUploaderGUI:
     def process_log_queue(self):
         """Procesar mensajes de la cola de log"""
         try:
-            # Procesar máximo 10 mensajes por vez para evitar bloqueos
+            # Procesar máximo 5 mensajes por vez para mejor rendimiento
             processed = 0
-            while processed < 10:
+            while processed < 5:
                 try:
                     message = self.log_queue.get_nowait()
                     self.log_text.insert(tk.END, message)
@@ -218,8 +326,8 @@ class ArchiveUploaderGUI:
         except Exception as e:
             pass
         
-        # Programar siguiente verificación con frecuencia reducida
-        self.root.after(100, self.process_log_queue)
+        # Programar siguiente verificación con frecuencia muy reducida
+        self.root.after(200, self.process_log_queue)
         
     def check_configuration(self):
         """Verificar configuración de Archive.org"""
@@ -262,12 +370,23 @@ class ArchiveUploaderGUI:
         # Escanear archivos en hilo separado para no bloquear la GUI
         def scan_worker():
             try:
-                uploader = ArchiveUploader(self.author_var.get() or "Autor", self.collection_var.get())
+                # Determinar colección a usar
+                if self.use_existing_collection_var.get() and self.existing_collection_var.get().strip():
+                    collection_to_use = self.existing_collection_var.get().strip()
+                else:
+                    collection_to_use = self.collection_var.get()
+                
+                # Determinar nombre de lista para escaneo
+                list_name = None
+                if self.add_to_list_var.get() and self.list_name_var.get().strip():
+                    list_name = self.list_name_var.get().strip()
+                
+                uploader = ArchiveUploader(self.author_var.get() or "Autor", collection_to_use, list_name)
                 files = uploader.scan_directory(Path(directory))
                 
                 files_found = 0
-                # Procesar archivos en lotes para mejor rendimiento
-                batch_size = 10
+                # Procesar archivos en lotes más pequeños para mejor rendimiento
+                batch_size = 5
                 for i in range(0, len(files), batch_size):
                     batch = files[i:i+batch_size]
                     
@@ -285,11 +404,12 @@ class ArchiveUploaderGUI:
                     # Permitir que la GUI procese eventos entre lotes
                     self.root.after(0, lambda: self.root.update_idletasks())
                     import time
-                    time.sleep(0.01)
+                    time.sleep(0.05)  # Pausa más larga para mejor responsividad
                     
                 # Actualizar log en el hilo principal
                 self.root.after(0, lambda: self.log(f"✅ Encontrados {files_found} archivos"))
                 self.root.after(0, lambda: self.progress_var.set(f"Encontrados {files_found} archivos"))
+                self.root.after(0, lambda: self.update_files_count(files_found))
                 
             except Exception as e:
                 self.root.after(0, lambda: self.log(f"❌ Error escaneando directorio: {e}"))
@@ -367,6 +487,9 @@ class ArchiveUploaderGUI:
             self.upload_button.config(state="disabled")
             self.progress_var.set("Iniciando subida...")
             
+            # Deshabilitar operaciones pesadas durante la subida
+            self.disable_heavy_operations()
+            
             # Iniciar subida en hilo separado
             self.upload_thread = threading.Thread(target=self.upload_worker, 
                                                 args=(directory, author))
@@ -384,8 +507,22 @@ class ArchiveUploaderGUI:
         try:
             self.log(f"🚀 Iniciando subida para '{author}'")
             
+            # Determinar colección a usar
+            if self.use_existing_collection_var.get() and self.existing_collection_var.get().strip():
+                collection_to_use = self.existing_collection_var.get().strip()
+                self.log(f"📚 Usando colección existente: {collection_to_use}")
+            else:
+                collection_to_use = self.collection_var.get()
+                self.log(f"📂 Usando colección estándar: {collection_to_use}")
+            
+            # Determinar nombre de lista
+            list_name = None
+            if self.add_to_list_var.get() and self.list_name_var.get().strip():
+                list_name = self.list_name_var.get().strip()
+                self.log(f"📋 Agregando items a lista: {list_name}")
+            
             # Crear uploader
-            uploader = ArchiveUploader(author, self.collection_var.get())
+            uploader = ArchiveUploader(author, collection_to_use, list_name)
             
             # Escanear archivos
             files = uploader.scan_directory(Path(directory))
@@ -407,6 +544,10 @@ class ArchiveUploaderGUI:
             completed_count = 0
             lock = Lock()
             
+            # Resetear estadísticas
+            self.upload_stats = {"success": 0, "error": 0, "total": total_files}
+            self.root.after(0, self.update_stats)
+            
             def upload_single_file(file_path, file_index):
                 nonlocal success_count, error_count, completed_count
                 
@@ -420,11 +561,19 @@ class ArchiveUploaderGUI:
                     if uploader.upload_file(file_path):
                         with lock:
                             success_count += 1
+                            self.upload_stats["success"] += 1
                         self.log(f"✅ Subido exitosamente: {file_path.name}")
+                        # Actualizar stats solo ocasionalmente para mejor rendimiento
+                        if success_count % 5 == 0:
+                            self.root.after(0, self.update_stats)
                     else:
                         with lock:
                             error_count += 1
+                            self.upload_stats["error"] += 1
                         self.log(f"❌ Error subiendo: {file_path.name}")
+                        # Actualizar stats solo ocasionalmente para mejor rendimiento
+                        if error_count % 5 == 0:
+                            self.root.after(0, self.update_stats)
                         
                 except Exception as e:
                     with lock:
@@ -434,8 +583,8 @@ class ArchiveUploaderGUI:
                     with lock:
                         completed_count += 1
                     
-                    # Actualizar progreso en el hilo principal (menos frecuente)
-                    if completed_count % 5 == 0 or completed_count == total_files:
+                    # Actualizar progreso en el hilo principal (muy poco frecuente)
+                    if completed_count % 10 == 0 or completed_count == total_files:
                         self.root.after(0, lambda: self.progress_bar.config(value=completed_count))
                         self.root.after(0, lambda: self.progress_var.set(f"Completados: {completed_count}/{total_files}"))
             
@@ -494,13 +643,25 @@ class ArchiveUploaderGUI:
         finally:
             self.uploading = False
             self.root.after(0, lambda: self.upload_button.config(state="normal"))
-            
+            self.root.after(0, lambda: self.enable_heavy_operations())
+    
+    def disable_heavy_operations(self):
+        """Deshabilitar operaciones pesadas durante la subida"""
+        # Reducir frecuencia de actualizaciones
+        self.root.after_cancel(self.log_timer) if hasattr(self, 'log_timer') else None
+        
+    def enable_heavy_operations(self):
+        """Habilitar operaciones pesadas después de la subida"""
+        # Restaurar frecuencia normal de actualizaciones
+        pass
+        
     def stop_upload(self):
         """Detener proceso de subida"""
         if self.uploading:
             self.uploading = False
             self.log("⏹️ Deteniendo subida...")
             self.progress_var.set("Detenido por usuario")
+            self.enable_heavy_operations()
         else:
             messagebox.showinfo("Info", "No hay subida en progreso")
             

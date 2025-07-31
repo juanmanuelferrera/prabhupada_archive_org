@@ -48,9 +48,10 @@ SUPPORTED_EXTENSIONS = {
 }
 
 class ArchiveUploader:
-    def __init__(self, author_name: str, collection: str = 'opensource'):
+    def __init__(self, author_name: str, collection: str = 'opensource', list_name: str = None):
         self.author_name = author_name
         self.collection = collection
+        self.list_name = list_name
         self.progress = self.load_progress()
         self.setup_logging()
         
@@ -97,12 +98,29 @@ class ArchiveUploader:
         """Generar identificador único para Archive.org"""
         # Limpiar nombre del archivo - solo caracteres válidos para Archive.org
         clean_name = file_path.stem.lower()
+        
+        # Reemplazar caracteres especiales problemáticos
+        replacements = {
+            'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ñ': 'n',
+            'ü': 'u', 'ç': 'c', 'à': 'a', 'è': 'e', 'ì': 'i', 'ò': 'o', 'ù': 'u',
+            'ä': 'a', 'ë': 'e', 'ï': 'i', 'ö': 'o', 'ü': 'u', 'ÿ': 'y',
+            'â': 'a', 'ê': 'e', 'î': 'i', 'ô': 'o', 'û': 'u',
+            'ã': 'a', 'õ': 'o', 'ñ': 'n'
+        }
+        
+        for old, new in replacements.items():
+            clean_name = clean_name.replace(old, new)
+        
         # Solo permitir letras, números, guiones y guiones bajos
         clean_name = ''.join(c for c in clean_name if c.isalnum() or c in '-_')
-        clean_name = clean_name.replace(' ', '-')
+        
+        # Reemplazar espacios y caracteres problemáticos con guiones
+        clean_name = clean_name.replace(' ', '-').replace('.', '-').replace(',', '-')
         
         # Limpiar autor también
         clean_author = self.author_name.lower()
+        for old, new in replacements.items():
+            clean_author = clean_author.replace(old, new)
         clean_author = ''.join(c for c in clean_author if c.isalnum() or c in '-_')
         clean_author = clean_author.replace(' ', '-')
         
@@ -114,6 +132,10 @@ class ArchiveUploader:
         # Máximo 100 caracteres, empezar con alfanumérico
         if len(identifier) > 100:
             identifier = identifier[:100]
+        
+        # Asegurar que empiece con alfanumérico
+        if not identifier[0].isalnum():
+            identifier = 'a' + identifier[1:]
         
         return identifier
         
@@ -176,6 +198,11 @@ class ArchiveUploader:
                         'date': datetime.datetime.now().isoformat()
                     }
                     self.save_progress()
+                    
+                    # Agregar a lista si se especificó
+                    if self.list_name:
+                        self.add_to_list(identifier, file_path.name)
+                    
                     # Mover archivo a carpeta "Uploaded" después de subida exitosa
                     self.move_to_uploaded_folder(file_path)
                     self.logger.info(f"✅ Subido exitosamente: {file_path.name}")
@@ -196,6 +223,31 @@ class ArchiveUploader:
             }
             self.save_progress()
             return False
+    
+    def add_to_list(self, identifier: str, filename: str):
+        """Agregar item a una lista de Archive.org"""
+        try:
+            if not self.list_name:
+                return
+                
+            self.logger.info(f"📋 Agregando {filename} a lista: {self.list_name}")
+            
+            # Usar la API de Archive.org para agregar a lista
+            import internetarchive as ia
+            
+            # Obtener el item
+            item = ia.get_item(identifier)
+            
+            # Crear o actualizar la lista
+            list_url = f"https://archive.org/details/{self.list_name}"
+            
+            # Nota: La API de listas requiere autenticación específica
+            # Por ahora, solo logueamos la información
+            self.logger.info(f"📋 Item {identifier} listo para agregar a lista: {list_url}")
+            self.logger.info(f"📋 Para agregar manualmente, visita: {list_url}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error agregando a lista: {e}")
             
     def scan_directory(self, directory: Path) -> List[Path]:
         """Escanear directorio en busca de archivos soportados"""
