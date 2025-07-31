@@ -27,4 +27,5 @@ if [ ! -f "archive_uploader.py" ]; then
 fi
 
 echo "✅ Iniciando interfaz gráfica..."
-python3 archive_uploader_gui.py 
+# Usar la versión específica de Python que tiene tkinter
+/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 archive_uploader_gui.py 

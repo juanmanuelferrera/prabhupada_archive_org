@@ -39,11 +39,17 @@ Sigue las instrucciones para configurar tu cuenta de Archive.org.
 
 ### Lanzar la GUI:
 ```bash
-# Opción 1: Script de lanzamiento
+# Opción 1: Script inteligente (recomendado)
+./lanzar_gui_smart.sh
+
+# Opción 2: Script de lanzamiento directo
 ./lanzar_gui.sh
 
-# Opción 2: Directamente con Python
+# Opción 3: Directamente con Python
 python3 archive_uploader_gui.py
+
+# Opción 4: Con ruta específica de Python (si hay problemas)
+/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 archive_uploader_gui.py
 ```
 
 ### Características de la GUI:
@@ -198,6 +204,18 @@ pip3 install internetarchive
 pip3 install requests
 ```
 
+### Error: "No module named '_tkinter'"
+```bash
+# Opción 1: Usar el script inteligente
+./lanzar_gui_smart.sh
+
+# Opción 2: Instalar tkinter
+brew install python-tk
+
+# Opción 3: Usar Python específico
+/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 archive_uploader_gui.py
+```
+
 ### Error de autenticación
 ```bash
 ia configure
@@ -206,6 +224,9 @@ ia configure
 ### Error de permisos
 ```bash
 chmod +x archive_uploader.py
+chmod +x archive_uploader_gui.py
+chmod +x lanzar_gui.sh
+chmod +x lanzar_gui_smart.sh
 ```
 
 ### Archivo muy grande
