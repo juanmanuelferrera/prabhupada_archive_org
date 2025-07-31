@@ -1,0 +1,13 @@
+# Archive.org Uploader - Dependencias
+
+# Librería principal para Archive.org
+internetarchive>=5.0.0
+
+# Para peticiones HTTP
+requests>=2.25.0
+
+# Para interfaz gráfica (incluida con Python)
+# tkinter (viene con Python)
+
+# Para mejor rendimiento JSON (opcional)
+# orjson>=3.0.0 
