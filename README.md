@@ -1,96 +1,108 @@
-# Archive.org Uploader para Material de Autor
+# Archive.org Uploader for Author Material
 
-Script automatizado para subir libros, videos y material audiovisual de un autor específico a Archive.org.
+Automated script to upload books, videos, and audiovisual material from a specific author to Archive.org.
 
-**🎉 ¡NUEVO! Interfaz gráfica incluida para uso más fácil.**
+**🎉 NEW! Graphical interface included for easier use.**
 
-## 🚀 Características
+## 🙏 Credits and Acknowledgments
 
-- **Subida automatizada** de múltiples tipos de archivos
-- **Metadatos automáticos** basados en el autor y tipo de archivo
-- **Sistema de progreso** que permite reanudar interrupciones
-- **Logging detallado** para seguimiento de errores
-- **Soporte para múltiples formatos**: PDF, EPUB, MP3, MP4, etc.
+This project is inspired by the original work of **[Bandali](https://kelar.org/~bandali/home.html)**, who created a script for mirroring Protesilaos' videos to Internet Archive. His pioneering implementation demonstrated the feasibility of automating content uploads to Archive.org using Python and the `internetarchive` library.
 
-## 📦 Instalación
+**References:**
+- [Mirroring Protesilaos' videos to Internet Archive](https://kelar.org/~bandali/2025/07/25/protesilaos-videos-archive.html) - Original script by Bandali for Protesilaos
+- [Bandali's Homepage](https://kelar.org/~bandali/home.html) - Author's personal page
 
-### 1. Clonar o descargar los archivos
-```bash
-# Si tienes git
-git clone <url-del-repositorio>
+**Differences from Bandali's original work:**
+- This project focuses on general author material (not just videos)
+- Includes a complete graphical interface
+- Supports multiple file types (books, audio, video, images)
+- Implements automatic organization with "Uploaded" folder
+- Includes collection management from the GUI
+
+Thanks to Bandali for his contribution to the free software ecosystem and for sharing his knowledge with the community.
+
+## 🚀 Features
+
+- **Automated upload** of multiple file types
+- **Automatic metadata** based on author and file type
+- **Progress system** that allows resuming interruptions
+- **Detailed logging** for error tracking
+- **Support for multiple formats**: PDF, EPUB, MP3, MP4, etc.
+- **Automatic organization**: uploaded files are moved to "Uploaded" folder
+
+## 📦 Installation
+
+### 1. Clone or download the files
+\`\`\`bash
+# If you have git
+git clone <repository-url>
 cd archive-uploader
 
-# O descargar manualmente los archivos
-```
+# Or download files manually
+\`\`\`
 
-### 2. Ejecutar el script de instalación
-```bash
+### 2. Run the installation script
+\`\`\`bash
 chmod +x setup_archive_uploader.sh
 ./setup_archive_uploader.sh
-```
+\`\`\`
 
-### 3. Configurar credenciales de Archive.org
-```bash
+### 3. Configure Archive.org credentials
+\`\`\`bash
 ia configure
-```
-Sigue las instrucciones para configurar tu cuenta de Archive.org.
+\`\`\`
+Follow the instructions to configure your Archive.org account.
 
-## 🖥️ Interfaz Gráfica (GUI)
+## 🖥️ Graphical Interface (GUI)
 
-### Lanzar la GUI:
-```bash
-# Opción 1: Script inteligente (recomendado)
-./lanzar_gui_smart.sh
-
-# Opción 2: Script de lanzamiento directo
+### Launch the GUI:
+\`\`\`bash
+# Option 1: Launch script
 ./lanzar_gui.sh
 
-# Opción 3: Directamente con Python
+# Option 2: Directly with Python
 python3 archive_uploader_gui.py
+\`\`\`
 
-# Opción 4: Con ruta específica de Python (si hay problemas)
-/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 archive_uploader_gui.py
-```
+### GUI Features:
+- **Intuitive interface** with buttons and menus
+- **Visual directory selection**
+- **File list** with detailed information
+- **Real-time progress bar**
+- **Integrated activity log**
+- **Control buttons** (Start, Stop, Help)
 
-### Características de la GUI:
-- **Interfaz intuitiva** con botones y menús
-- **Selección visual** de directorios
-- **Lista de archivos** con información detallada
-- **Barra de progreso** en tiempo real
-- **Registro de actividad** integrado
-- **Botones de control** (Iniciar, Detener, Ayuda)
+## 📖 Basic Usage
 
-## 📖 Uso Básico
+\`\`\`bash
+python3 archive_uploader.py /path/to/material "Author Name"
+\`\`\`
 
-```bash
-python3 archive_uploader.py /ruta/a/material "Nombre del Autor"
-```
+### Examples
 
-### Ejemplos
+\`\`\`bash
+# Upload books from an author
+python3 archive_uploader.py ~/Documents/books "Carlos Fuentes"
 
-```bash
-# Subir libros de un autor
-python3 archive_uploader.py ~/Documents/libros "Carlos Fuentes"
+# Upload conference videos
+python3 archive_uploader.py ~/Videos/conferences "Eduardo Galeano"
 
-# Subir videos de conferencias
-python3 archive_uploader.py ~/Videos/conferencias "Eduardo Galeano"
-
-# Subir material a una colección específica
+# Upload material to a specific collection
 python3 archive_uploader.py ~/Audio/podcasts "Gabriel García Márquez" --collection opensource
-```
+\`\`\`
 
-## 🔧 Opciones Avanzadas
+## 🔧 Advanced Options
 
-### Argumentos del script
+### Script Arguments
 
-- `directory`: Directorio con el material a subir
-- `author`: Nombre del autor
-- `--collection`: Colección en Archive.org (default: opensource)
-- `--resume`: Reanudar desde el último archivo procesado
+- \`directory\`: Directory with material to upload
+- \`author\`: Author name
+- \`--collection\`: Collection on Archive.org (default: opensource)
+- \`--resume\`: Resume from the last processed file
 
-### Formatos Soportados
+### Supported Formats
 
-**Libros:**
+**Books:**
 - PDF, EPUB, MOBI, TXT, DOC, DOCX
 
 **Audio:**
@@ -99,36 +111,63 @@ python3 archive_uploader.py ~/Audio/podcasts "Gabriel García Márquez" --collec
 **Video:**
 - MP4, AVI, MKV, MOV, WEBM
 
-**Imágenes:**
+**Images:**
 - JPG, JPEG, PNG, GIF, TIFF
 
-## 📁 Estructura de Archivos
+## 📂 Automatic Organization
 
-### Archivos del Sistema:
-- `archive_uploader.py` - Script principal (línea de comandos)
-- `archive_uploader_gui.py` - Interfaz gráfica
-- `setup_archive_uploader.sh` - Script de instalación
-- `lanzar_gui.sh` - Lanzador de la GUI
-- `README.md` - Documentación
+### "Uploaded" Folder
+After successfully uploading each file, the system automatically:
 
-### Archivos Creados Automáticamente:
-- `.archive_progress.json`: Progreso guardado (permite reanudar)
-- `.archive_upload.log`: Registro detallado de actividades
+1. **Creates an "Uploaded" folder** in the original directory
+2. **Moves the uploaded file** to this folder
+3. **Avoids duplicates** by adding timestamp if necessary
+4. **Excludes already uploaded files** in future scans
 
-## 🎯 Metadatos Automáticos
+### Advantages:
+- ✅ **Automatic organization** of material
+- ✅ **Prevents duplicate uploads**
+- ✅ **Facilitates resumption** if interrupted
+- ✅ **Visual control** of what has been uploaded
 
-El script genera automáticamente:
+### Example structure:
+\`\`\`
+MyMaterial/
+├── book1.pdf          # To upload
+├── video1.mp4         # To upload
+├── audio1.mp3         # To upload
+└── Uploaded/          # Automatically created folder
+    ├── book1.pdf      # Already uploaded
+    └── video1.mp4     # Already uploaded
+\`\`\`
 
-- **Título**: Basado en el nombre del archivo
-- **Autor**: El nombre especificado
-- **Fecha**: Fecha actual
-- **Licencia**: Creative Commons BY-SA 4.0
-- **Idioma**: Español (configurable)
-- **Tipo de medio**: Detectado automáticamente
+## 📁 File Structure
 
-### Ejemplo de metadatos generados:
+### System Files:
+- \`archive_uploader.py\` - Main script (command line)
+- \`archive_uploader_gui.py\` - Graphical interface
+- \`setup_archive_uploader.sh\` - Installation script
+- \`lanzar_gui.sh\` - GUI launcher
+- \`README.md\` - Documentation
 
-```json
+### Automatically Created Files:
+- \`.archive_progress.json\`: Saved progress (allows resuming)
+- \`.archive_upload.log\`: Detailed activity log
+
+## 🎯 Automatic Metadata
+
+The script automatically generates:
+
+- **Title**: Based on filename
+- **Author**: The specified name
+- **Date**: Current date
+- **License**: Creative Commons BY-SA 4.0
+- **Language**: Spanish (configurable)
+- **Media type**: Automatically detected
+
+### Example of generated metadata:
+
+\`\`\`json
 {
   "title": "El Laberinto De La Soledad",
   "creator": "Octavio Paz",
@@ -137,133 +176,119 @@ El script genera automáticamente:
   "language": "es",
   "licenseurl": "https://creativecommons.org/licenses/by-sa/4.0/",
   "date": "2025-01-15",
-  "description": "Material de Octavio Paz: El Laberinto De La Soledad",
+  "description": "Material by Octavio Paz: El Laberinto De La Soledad",
   "subject": ["Octavio Paz", "books", "opensource"]
 }
-```
+\`\`\`
 
-## 🔄 Reanudar Proceso Interrumpido
+## 🔄 Resume Interrupted Process
 
-Si el proceso se interrumpe, puedes reanudarlo:
+If the process is interrupted, you can resume it:
 
-```bash
-python3 archive_uploader.py /ruta/a/material "Nombre del Autor" --resume
-```
+\`\`\`bash
+python3 archive_uploader.py /path/to/material "Author Name" --resume
+\`\`\`
 
-El script detectará automáticamente los archivos ya subidos y continuará desde donde se quedó.
+The script will automatically detect already uploaded files and continue from where it left off.
 
-## 📊 Monitoreo del Progreso
+## 📊 Progress Monitoring
 
-### Ver progreso en tiempo real:
-```bash
+### View progress in real time:
+\`\`\`bash
 tail -f .archive_upload.log
-```
+\`\`\`
 
-### Ver archivos ya procesados:
-```bash
+### View already processed files:
+\`\`\`bash
 cat .archive_progress.json | jq '.'
-```
+\`\`\`
 
-## ⚠️ Consideraciones Importantes
+## ⚠️ Important Considerations
 
-### Límites de Archive.org
-- **Tamaño máximo por archivo**: 100GB
-- **Límite de velocidad**: Respeta los límites de la API
-- **Cuota diaria**: Verifica los límites de tu cuenta
+### Archive.org Limits
+- **Maximum file size**: 100GB
+- **Speed limit**: Respects API limits
+- **Daily quota**: Check your account limits
 
-### Organización de Archivos
-- **Nombres descriptivos**: Los nombres de archivo se usan para generar títulos
-- **Estructura de carpetas**: El script procesa recursivamente subdirectorios
-- **Evitar caracteres especiales**: Usa nombres simples para mejores resultados
+### File Organization
+- **Descriptive names**: Filenames are used to generate titles
+- **Folder structure**: Script processes subdirectories recursively
+- **Avoid special characters**: Use simple names for better results
 
-### Metadatos Personalizados
-Para personalizar metadatos, edita la función `generate_metadata()` en el script:
+### Custom Metadata
+To customize metadata, edit the \`generate_metadata()\` function in the script:
 
-```python
+\`\`\`python
 def generate_metadata(self, file_path: Path, mediatype: str) -> Dict:
-    # Personalizar aquí los metadatos
+    # Customize metadata here
     metadata = {
         'title': file_path.stem.replace('_', ' ').title(),
         'creator': self.author_name,
         'collection': self.collection,
-        # Agregar campos personalizados aquí
-        'custom_field': 'valor_personalizado'
+        # Add custom fields here
+        'custom_field': 'custom_value'
     }
     return metadata
-```
+\`\`\`
 
-## 🐛 Solución de Problemas
+## 🐛 Troubleshooting
 
 ### Error: "internetarchive library not found"
-```bash
+\`\`\`bash
 pip3 install internetarchive
-```
+\`\`\`
 
 ### Error: "requests library not found"
-```bash
+\`\`\`bash
 pip3 install requests
-```
+\`\`\`
 
-### Error: "No module named '_tkinter'"
-```bash
-# Opción 1: Usar el script inteligente
-./lanzar_gui_smart.sh
-
-# Opción 2: Instalar tkinter
-brew install python-tk
-
-# Opción 3: Usar Python específico
-/Library/Frameworks/Python.framework/Versions/3.11/bin/python3 archive_uploader_gui.py
-```
-
-### Error de autenticación
-```bash
+### Authentication error
+\`\`\`bash
 ia configure
-```
+\`\`\`
 
-### Error de permisos
-```bash
+### Permission error
+\`\`\`bash
 chmod +x archive_uploader.py
-chmod +x archive_uploader_gui.py
-chmod +x lanzar_gui.sh
-chmod +x lanzar_gui_smart.sh
-```
+\`\`\`
 
-### Archivo muy grande
-- Verifica que el archivo no exceda 100GB
-- Considera dividir archivos grandes
+### File too large
+- Verify the file doesn't exceed 100GB
+- Consider splitting large files
 
-## 📈 Comparación con el Script Original
+## 📈 Comparison with Original Script
 
-| Característica | Script Original | Este Script |
-|----------------|-----------------|-------------|
-| Complejidad | Alta (YouTube + Markdown) | Media (Archivos locales) |
-| Configuración | Compleja | Simple |
-| Metadatos | Desde Markdown | Automáticos |
-| Progreso | JSONL | JSON |
-| Logging | Avanzado | Básico |
-| Uso | Específico | General |
+| Feature | Original Script | This Script |
+|---------|-----------------|-------------|
+| Complexity | High (YouTube + Markdown) | Medium (Local files) |
+| Configuration | Complex | Simple |
+| Metadata | From Markdown | Automatic |
+| Progress | JSONL | JSON |
+| Logging | Advanced | Basic |
+| Usage | Specific | General |
 
-## 🤝 Contribuciones
+## 🤝 Contributions
 
-Para mejorar el script:
+To improve the script:
 
-1. Fork el repositorio
-2. Crea una rama para tu feature
-3. Haz commit de tus cambios
-4. Push a la rama
-5. Abre un Pull Request
+1. Fork the repository
+2. Create a branch for your feature
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
 
-## 📄 Licencia
+## 📄 License
 
-Este script está bajo la licencia MIT. Ver archivo LICENSE para detalles.
+This script is under MIT license. See LICENSE file for details.
 
-## 🙏 Agradecimientos
+## 🙏 Acknowledgments
 
-- Basado en el trabajo de Amin Bandali
-- Utiliza la librería `internetarchive` de Archive.org
-- Inspirado en el script de Protesilaos Stavrou
+- **Bandali** - For his pioneering work in [mirroring videos to Internet Archive](https://kelar.org/~bandali/2025/07/25/protesilaos-videos-archive.html)
+- **Internet Archive** - For providing the \`internetarchive\` library and platform
+- **Protesilaos Stavrou** - For his educational and philosophical content that inspired Bandali's original work
+- **Free software community** - For maintaining and improving the tools used
 
 ---
 
-**Nota**: Este script es para uso educativo y de preservación. Asegúrate de tener los derechos necesarios para subir el material a Archive.org. 
+**Note**: This script is for educational and preservation use. Make sure you have the necessary rights to upload material to Archive.org.
