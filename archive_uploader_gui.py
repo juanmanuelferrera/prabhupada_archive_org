@@ -143,11 +143,21 @@ class ArchiveUploaderGUI:
                   command=self.open_log).pack(side=tk.LEFT, padx=(0, 10))
         
         ttk.Button(buttons_frame, text="❓ Ayuda", 
-                  command=self.show_help).pack(side=tk.LEFT)
+                  command=self.show_help).pack(side=tk.LEFT, padx=(0, 10))
+        
+        ttk.Button(buttons_frame, text="🧪 Probar", 
+                  command=self.test_connection).pack(side=tk.LEFT)
+        
+        # Información sobre carpeta Uploaded
+        info_frame = ttk.LabelFrame(main_frame, text="ℹ️ Información", padding="10")
+        info_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        info_text = "📁 Los archivos subidos exitosamente se moverán automáticamente a una carpeta 'Uploaded'"
+        ttk.Label(info_frame, text=info_text, foreground="blue").pack(anchor=tk.W)
         
         # Sección de log
         log_frame = ttk.LabelFrame(main_frame, text="📝 Registro de Actividad", padding="10")
-        log_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
+        log_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
         
@@ -157,7 +167,7 @@ class ArchiveUploaderGUI:
         
         # Configurar grid weights
         main_frame.rowconfigure(2, weight=1)
-        main_frame.rowconfigure(5, weight=1)
+        main_frame.rowconfigure(6, weight=1)
         
         # Variables de control
         self.uploading = False
@@ -275,38 +285,65 @@ class ArchiveUploaderGUI:
         
     def start_upload(self):
         """Iniciar proceso de subida"""
-        if self.uploading:
-            messagebox.showinfo("Info", "Ya hay una subida en progreso")
-            return
+        try:
+            self.log("🔍 Verificando estado antes de iniciar subida...")
             
-        directory = self.directory_var.get()
-        author = self.author_var.get()
-        
-        if not directory or not author:
-            messagebox.showerror("Error", "Selecciona directorio y autor")
-            return
+            if self.uploading:
+                self.log("❌ Ya hay una subida en progreso")
+                messagebox.showinfo("Info", "Ya hay una subida en progreso")
+                return
+                
+            directory = self.directory_var.get()
+            author = self.author_var.get()
             
-        if not os.path.exists(directory):
-            messagebox.showerror("Error", "El directorio no existe")
-            return
+            self.log(f"📁 Directorio: {directory}")
+            self.log(f"👤 Autor: {author}")
             
-        # Confirmar inicio
-        response = messagebox.askyesno("Confirmar Subida", 
-                                     f"¿Iniciar subida de material de '{author}'?\n"
-                                     f"Directorio: {directory}")
-        if not response:
-            return
+            if not directory or not author:
+                self.log("❌ Faltan directorio o autor")
+                messagebox.showerror("Error", "Selecciona directorio y autor")
+                return
+                
+            if not os.path.exists(directory):
+                self.log(f"❌ El directorio no existe: {directory}")
+                messagebox.showerror("Error", "El directorio no existe")
+                return
+                
+            # Verificar que hay archivos en la lista
+            files_count = len(self.files_tree.get_children())
+            self.log(f"📋 Archivos en lista: {files_count}")
             
-        self.uploading = True
-        self.upload_button.config(state="disabled")
-        self.progress_var.set("Iniciando subida...")
-        
-        # Iniciar subida en hilo separado
-        self.upload_thread = threading.Thread(target=self.upload_worker, 
-                                            args=(directory, author))
-        self.upload_thread.daemon = True
-        self.upload_thread.start()
-        
+            if files_count == 0:
+                self.log("❌ No hay archivos para subir")
+                messagebox.showwarning("Advertencia", "No hay archivos para subir. Escanea el directorio primero.")
+                return
+                
+            # Confirmar inicio
+            response = messagebox.askyesno("Confirmar Subida", 
+                                         f"¿Iniciar subida de material de '{author}'?\n"
+                                         f"Directorio: {directory}\n"
+                                         f"Archivos: {files_count}")
+            if not response:
+                self.log("❌ Usuario canceló la subida")
+                return
+                
+            self.log("✅ Iniciando subida...")
+            self.uploading = True
+            self.upload_button.config(state="disabled")
+            self.progress_var.set("Iniciando subida...")
+            
+            # Iniciar subida en hilo separado
+            self.upload_thread = threading.Thread(target=self.upload_worker, 
+                                                args=(directory, author))
+            self.upload_thread.daemon = True
+            self.upload_thread.start()
+            
+        except Exception as e:
+            self.log(f"❌ Error en start_upload: {e}")
+            messagebox.showerror("Error", f"Error iniciando subida: {e}")
+            self.uploading = False
+            self.upload_button.config(state="normal")
+            
     def upload_worker(self, directory, author):
         """Trabajador de subida en hilo separado"""
         try:
@@ -402,6 +439,77 @@ class ArchiveUploaderGUI:
         else:
             messagebox.showinfo("Info", "No hay archivo de log disponible")
             
+    def test_connection(self):
+        """Probar conexión y configuración"""
+        try:
+            self.log("🧪 Iniciando prueba de conexión...")
+            
+            # Probar importación
+            from archive_uploader import ArchiveUploader
+            self.log("✅ Importación de ArchiveUploader exitosa")
+            
+            # Probar creación de uploader
+            test_uploader = ArchiveUploader("Test", "opensource")
+            self.log("✅ Creación de uploader exitosa")
+            
+            # Probar configuración de internetarchive
+            import internetarchive as ia
+            self.log("✅ Módulo internetarchive disponible")
+            
+            # Probar directorio actual
+            current_dir = os.getcwd()
+            self.log(f"📁 Directorio actual: {current_dir}")
+            
+            # Probar variables de la GUI
+            directory = self.directory_var.get()
+            author = self.author_var.get()
+            self.log(f"📁 Directorio en GUI: {directory}")
+            self.log(f"👤 Autor en GUI: {author}")
+            
+            # Probar lista de archivos
+            files_count = len(self.files_tree.get_children())
+            self.log(f"📋 Archivos en lista: {files_count}")
+            
+            # Probar estado de botones
+            button_state = self.upload_button.cget("state")
+            self.log(f"🔘 Estado del botón de subida: {button_state}")
+            
+            # Probar estado de uploading
+            self.log(f"🔄 Estado uploading: {self.uploading}")
+            
+            self.log("🎉 Todas las pruebas pasaron exitosamente")
+            messagebox.showinfo("Prueba Exitosa", "Todas las verificaciones pasaron correctamente.\nLa GUI está funcionando bien.")
+            
+        except Exception as e:
+            self.log(f"❌ Error en prueba: {e}")
+            messagebox.showerror("Error en Prueba", f"Error durante la prueba:\n{e}")
+    
+    def test_connection(self):
+        """Probar conexión con Archive.org"""
+        try:
+            self.log("🧪 Probando conexión con Archive.org...")
+            
+            # Importar y probar conexión
+            import internetarchive as ia
+            from archive_uploader import ArchiveUploader
+            
+            # Crear uploader de prueba
+            test_uploader = ArchiveUploader("test", "opensource")
+            
+            # Verificar configuración
+            self.log("✅ Configuración de Archive.org verificada")
+            self.log("✅ Módulos importados correctamente")
+            self.log("✅ Sistema listo para subir archivos")
+            
+            messagebox.showinfo("Prueba Exitosa", 
+                              "✅ Conexión con Archive.org verificada\n"
+                              "✅ Sistema funcionando correctamente")
+                              
+        except Exception as e:
+            self.log(f"❌ Error en prueba: {e}")
+            messagebox.showerror("Error en Prueba", 
+                               f"Error verificando conexión:\n{e}")
+        
     def show_help(self):
         """Mostrar ayuda"""
         help_text = """

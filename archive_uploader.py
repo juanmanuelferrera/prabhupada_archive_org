@@ -162,6 +162,8 @@ class ArchiveUploader:
                         'date': datetime.datetime.now().isoformat()
                     }
                     self.save_progress()
+                    # Mover archivo a carpeta "Uploaded" después de subida exitosa
+                    self.move_to_uploaded_folder(file_path)
                     self.logger.info(f"✅ Subido exitosamente: {file_path.name}")
                     return True
                 else:
@@ -189,10 +191,46 @@ class ArchiveUploader:
             all_extensions.extend(ext_list)
             
         for file_path in directory.rglob('*'):
+            # Excluir archivos en carpetas "Uploaded"
+            if "Uploaded" in file_path.parts:
+                continue
+                
             if file_path.is_file() and file_path.suffix.lower() in all_extensions:
                 files.append(file_path)
                 
         return sorted(files)
+        
+    def move_to_uploaded_folder(self, file_path: Path):
+        """Mover archivo a carpeta 'Uploaded' después de subida exitosa"""
+        try:
+            self.logger.info(f"🔄 Intentando mover archivo: {file_path}")
+            
+            # Crear carpeta "Uploaded" en el directorio padre del archivo
+            uploaded_dir = file_path.parent / "Uploaded"
+            self.logger.info(f"📁 Creando carpeta: {uploaded_dir}")
+            uploaded_dir.mkdir(exist_ok=True)
+            
+            # Definir ruta de destino
+            destination = uploaded_dir / file_path.name
+            self.logger.info(f"🎯 Destino: {destination}")
+            
+            # Si ya existe un archivo con el mismo nombre, agregar timestamp
+            if destination.exists():
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                name_parts = file_path.stem, timestamp, file_path.suffix
+                destination = uploaded_dir / f"{name_parts[0]}_{name_parts[1]}{name_parts[2]}"
+                self.logger.info(f"🕐 Archivo existe, nuevo destino: {destination}")
+            
+            # Mover archivo
+            import shutil
+            self.logger.info(f"📦 Moviendo de {file_path} a {destination}")
+            shutil.move(str(file_path), str(destination))
+            self.logger.info(f"✅ Movido exitosamente a: {destination}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error moviendo archivo a carpeta Uploaded: {e}")
+            import traceback
+            self.logger.error(f"📋 Traceback: {traceback.format_exc()}")
         
     def process_directory(self, directory: str):
         """Procesar directorio completo"""
