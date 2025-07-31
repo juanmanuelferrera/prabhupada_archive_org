@@ -37,7 +37,7 @@ class ArchiveUploaderGUI:
         self.directory_var = tk.StringVar()
         self.author_var = tk.StringVar()
         self.collection_var = tk.StringVar(value="opensource")
-        self.threads_var = tk.StringVar(value="3")
+        self.threads_var = tk.StringVar(value="2")
         self.progress_var = tk.StringVar(value="Listo para subir")
         
         # Cola para comunicación entre hilos
@@ -92,7 +92,7 @@ class ArchiveUploaderGUI:
         threads_combo = ttk.Combobox(config_frame, textvariable=self.threads_var, 
                                     values=["1", "2", "3", "4", "5"], width=10)
         threads_combo.grid(row=3, column=1, sticky=tk.W, padx=(5, 5), pady=5)
-        ttk.Label(config_frame, text="(máximo 5 para no sobrecargar Archive.org)").grid(row=3, column=2, sticky=tk.W, pady=5)
+        ttk.Label(config_frame, text="(Menos = más responsivo)").grid(row=3, column=2, sticky=tk.W, pady=5)
         
         # Sección de archivos
         files_frame = ttk.LabelFrame(main_frame, text="📋 Archivos Encontrados", padding="10")
@@ -200,16 +200,26 @@ class ArchiveUploaderGUI:
     def process_log_queue(self):
         """Procesar mensajes de la cola de log"""
         try:
-            while True:
-                message = self.log_queue.get_nowait()
-                self.log_text.insert(tk.END, message)
+            # Procesar máximo 10 mensajes por vez para evitar bloqueos
+            processed = 0
+            while processed < 10:
+                try:
+                    message = self.log_queue.get_nowait()
+                    self.log_text.insert(tk.END, message)
+                    self.log_queue.task_done()
+                    processed += 1
+                except queue.Empty:
+                    break
+            
+            # Solo hacer scroll si se procesaron mensajes
+            if processed > 0:
                 self.log_text.see(tk.END)
-                self.log_queue.task_done()
-        except queue.Empty:
+                
+        except Exception as e:
             pass
         
-        # Programar siguiente verificación con menor frecuencia para mejor responsividad
-        self.root.after(50, self.process_log_queue)
+        # Programar siguiente verificación con frecuencia reducida
+        self.root.after(100, self.process_log_queue)
         
     def check_configuration(self):
         """Verificar configuración de Archive.org"""
@@ -256,16 +266,26 @@ class ArchiveUploaderGUI:
                 files = uploader.scan_directory(Path(directory))
                 
                 files_found = 0
-                for file_path in files:
-                    # Obtener información del archivo
-                    file_size = os.path.getsize(file_path)
-                    file_size_str = self.format_file_size(file_size)
-                    file_type = uploader.get_mediatype(file_path)
+                # Procesar archivos en lotes para mejor rendimiento
+                batch_size = 10
+                for i in range(0, len(files), batch_size):
+                    batch = files[i:i+batch_size]
                     
-                    # Insertar en la lista en el hilo principal
-                    self.root.after(0, lambda fp=file_path, ft=file_type, fs=file_size_str: 
-                        self.files_tree.insert("", tk.END, text=fp.name, values=(ft, fs)))
-                    files_found += 1
+                    for file_path in batch:
+                        # Obtener información del archivo
+                        file_size = os.path.getsize(file_path)
+                        file_size_str = self.format_file_size(file_size)
+                        file_type = uploader.get_mediatype(file_path)
+                        
+                        # Insertar en la lista en el hilo principal
+                        self.root.after(0, lambda fp=file_path, ft=file_type, fs=file_size_str: 
+                            self.files_tree.insert("", tk.END, text=fp.name, values=(ft, fs)))
+                        files_found += 1
+                    
+                    # Permitir que la GUI procese eventos entre lotes
+                    self.root.after(0, lambda: self.root.update_idletasks())
+                    import time
+                    time.sleep(0.01)
                     
                 # Actualizar log en el hilo principal
                 self.root.after(0, lambda: self.log(f"✅ Encontrados {files_found} archivos"))
@@ -414,9 +434,10 @@ class ArchiveUploaderGUI:
                     with lock:
                         completed_count += 1
                     
-                    # Actualizar progreso en el hilo principal
-                    self.root.after(0, lambda: self.progress_bar.config(value=completed_count))
-                    self.root.after(0, lambda: self.progress_var.set(f"Completados: {completed_count}/{total_files}"))
+                    # Actualizar progreso en el hilo principal (menos frecuente)
+                    if completed_count % 5 == 0 or completed_count == total_files:
+                        self.root.after(0, lambda: self.progress_bar.config(value=completed_count))
+                        self.root.after(0, lambda: self.progress_var.set(f"Completados: {completed_count}/{total_files}"))
             
             # Determinar número de hilos desde la configuración
             try:
@@ -436,12 +457,14 @@ class ArchiveUploaderGUI:
                     future = executor.submit(upload_single_file, file_path, i)
                     futures.append(future)
                 
-                # Esperar a que todos terminen
-                for future in concurrent.futures.as_completed(futures):
+                # Esperar a que todos terminen con timeout para evitar bloqueos
+                for future in concurrent.futures.as_completed(futures, timeout=1):
                     if not self.uploading:
                         break
                     try:
-                        future.result()  # Esto captura cualquier excepción
+                        future.result(timeout=30)  # Timeout de 30 segundos por archivo
+                    except concurrent.futures.TimeoutError:
+                        self.log(f"⏰ Timeout en subida de archivo")
                     except Exception as e:
                         self.log(f"❌ Error en hilo de subida: {e}")
             
