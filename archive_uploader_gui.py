@@ -150,14 +150,14 @@ class ArchiveUploaderGUI:
         
         # Información sobre carpeta Uploaded
         info_frame = ttk.LabelFrame(main_frame, text="ℹ️ Información", padding="10")
-        info_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        info_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
         
         info_text = "📁 Los archivos subidos exitosamente se moverán automáticamente a una carpeta 'Uploaded'"
         ttk.Label(info_frame, text=info_text, foreground="blue").pack(anchor=tk.W)
         
         # Sección de log
         log_frame = ttk.LabelFrame(main_frame, text="📝 Registro de Actividad", padding="10")
-        log_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
+        log_frame.grid(row=7, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
         
@@ -167,7 +167,7 @@ class ArchiveUploaderGUI:
         
         # Configurar grid weights
         main_frame.rowconfigure(2, weight=1)
-        main_frame.rowconfigure(6, weight=1)
+        main_frame.rowconfigure(7, weight=1)
         
         # Variables de control
         self.uploading = False
